@@ -1,48 +1,48 @@
 # Far Cry Primal Tools (Python)
 
-Python tools for modding **Far Cry Primal** (PC & PS4) — archive extraction/reimport and texture extraction/reimport built on the Dunia engine file formats.
+Python tools สำหรับ mod **Far Cry Primal** (PC & PS4) — แตกไฟล์/แพ็กไฟล์จาก archive และ texture บน Dunia engine
 
 ---
 
-## Tools
+## เครื่องมือ
 
-| File | Purpose |
+| ไฟล์ | หน้าที่ |
 |------|---------|
-| `fat_tool.py` | Extract / repack FAT/DAT archives (PC + PS4) |
-| `xbt_tool.py` | Extract / repack XBT textures (PC + PS4) |
-| `FCP.xml` | Filename list for Far Cry Primal |
+| `fat_tool.py` | แตก / แพ็ก FAT/DAT archive (PC + PS4) |
+| `xbt_tool.py` | แตก / แพ็ก XBT texture (PC + PS4) |
+| `FCP.xml` | รายชื่อไฟล์ใน Far Cry Primal |
 
 ---
 
-## Requirements
+## ความต้องการ
 
 ```
 Python 3.10+
 lzo      (pip install python-lzo)   ← PC compression
 lz4      (pip install lz4)          ← PS4 compression
-Pillow   (pip install Pillow)       ← optional, PNG export from xbt_tool
+Pillow   (pip install Pillow)       ← optional, export PNG จาก xbt_tool
 ```
 
-### PS4 Texture Swizzle (xbt_tool only)
+### PS4 Texture Swizzle (xbt_tool เท่านั้น)
 
-To correctly deswizzle / reswizzle PS4 textures you need two DLLs from the **PS4 SDK (libSceGpuAddress)**:
+สำหรับ deswizzle / reswizzle texture PS4 อย่างถูกต้อง ต้องใช้ DLL สองตัวจาก **PS4 SDK (libSceGpuAddress)**:
 
 ```
 libSceGpuAddress.dll
 libSceGnm.dll
 ```
 
-Place both in a folder (e.g. `ps4sdk/`) and pass `--orbis-tools ps4sdk` to `xbt_tool.py`.
-You must obtain these DLLs yourself from the official or leaked PS4 SDK.
+วางทั้งสองไฟล์ไว้ในโฟลเดอร์เดียวกัน (เช่น `ps4sdk/`) แล้วส่ง `--orbis-tools ps4sdk` ให้ `xbt_tool.py`
+ต้องหา DLL เหล่านี้เองจาก PS4 SDK
 
 ---
 
 ## fat_tool.py — FAT/DAT Archive Tool
 
-### File Format
+### รูปแบบไฟล์
 
-Far Cry Primal uses `.fat` (index) + `.dat` (data) pairs.
-Version 9 (Dunia2 V9), little-endian. 20 bytes per entry.
+Far Cry Primal ใช้คู่ `.fat` (index) + `.dat` (data)
+Version 9 (Dunia2 V9), little-endian, 20 bytes ต่อ entry
 
 | Platform | Compression |
 |----------|------------|
@@ -51,43 +51,71 @@ Version 9 (Dunia2 V9), little-endian. 20 bytes per entry.
 
 ### Filelist (XML)
 
-Place an XML filelist next to `fat_tool.py` and it will be loaded automatically:
+วาง XML filelist ไว้ข้างๆ `fat_tool.py` แล้วจะโหลดอัตโนมัติ:
 
 ```xml
 <filelist game="Far Cry Primal">
     <File name="ui\common\fonts\fire\din_next_w1g_default_1.xbt" />
     <File name="data\worlds\primal\world.fcb" />
-    ...
 </filelist>
 ```
 
-`FCP.xml` contains the Far Cry Primal filelist — already included.
+`FCP.xml` มี filelist ของ Far Cry Primal — รวมมาให้แล้ว
 
-### Commands
+### คำสั่ง
 
-#### Extract
+#### Extract (แตกไฟล์)
 
 ```bash
 python fat_tool.py extract DATA0.fat DATA0.dat ./output
 ```
 
-Extract all files. Unknown filenames will be saved as `<hash_hex>`.
+แตกไฟล์ทั้งหมดที่มีชื่ออยู่ใน filelist ชื่อไฟล์ที่ไม่รู้จะบันทึกเป็น `<hash_hex>`
 
 ```bash
 python fat_tool.py extract DATA0.fat DATA0.dat ./output --names extra.xml
 python fat_tool.py extract DATA0.fat DATA0.dat ./output --filelist names.filelist
 ```
 
-Merge additional filelists.
+เพิ่ม filelist เพิ่มเติม
 
-#### Import (Repack)
+#### Pack (สร้าง archive ใหม่จาก directory)
+
+```bash
+# PS4 (ค่าเริ่มต้น)
+python fat_tool.py pack ./my_files patch2.fat patch2.dat
+
+# ระบุ platform ชัดเจน
+python fat_tool.py pack ./my_files patch2.fat patch2.dat --platform 4 --comp-ver 2
+
+# PC
+python fat_tool.py pack ./my_files patch2.fat patch2.dat --platform 1 --comp-ver 0
+```
+
+สร้าง FAT/DAT ใหม่จากไฟล์ทั้งหมดใน directory — **ไม่ต้องใช้ไฟล์ต้นฉบับ ไม่ต้องมี manifest**
+คำนวณ CRC64 hash จาก relative path ของแต่ละไฟล์อัตโนมัติ
+
+| `--platform` | ความหมาย |
+|-------------|---------|
+| 0 | Any |
+| 1 | PC |
+| 4 | PS4 (ค่าเริ่มต้น) |
+
+| `--comp-ver` | ความหมาย |
+|-------------|---------|
+| 0 | PC (LZO) |
+| 2 | PS4 / LZ4 (ค่าเริ่มต้น) |
+
+> ถ้ามี `_manifest.json` อยู่ใน directory จะใช้ platform/hash จาก manifest แทน (ไม่ต้องใส่ flags)
+
+#### Import (แทนที่ไฟล์ใน archive เดิม)
 
 ```bash
 python fat_tool.py import DATA0.fat DATA0.dat ./input DATA0_new.fat DATA0_new.dat
 ```
 
-Repack modified files back into a new FAT/DAT pair.
-Files in `./input` must use the same relative paths as extracted.
+แทนที่ไฟล์ที่แก้ไขกลับเข้า FAT/DAT ใหม่ — ไฟล์ที่ไม่ได้แก้จะคัดลอกจาก archive เดิม
+ไฟล์ใน `./input` ต้องใช้ path เดียวกันกับที่ extract ออกมา
 
 #### Info
 
@@ -95,7 +123,7 @@ Files in `./input` must use the same relative paths as extracted.
 python fat_tool.py info DATA0.fat
 ```
 
-Print archive statistics (entry count, compression, platform).
+แสดงข้อมูล archive (จำนวน entry, compression, platform)
 
 #### Hashlist
 
@@ -103,126 +131,111 @@ Print archive statistics (entry count, compression, platform).
 python fat_tool.py hashlist installpkg.filelist -o hashlist.json
 ```
 
-Generate a JSON hash→path lookup from a `.filelist` file.
+สร้าง JSON hash→path จากไฟล์ `.filelist`
 
 ---
 
 ## xbt_tool.py — XBT Texture Tool
 
-### File Format
+### รูปแบบไฟล์
 
-XBT is the Dunia engine texture container.
+XBT คือ container texture ของ Dunia engine
 
 | Platform | Payload |
 |----------|---------|
-| PC | DDS file (raw) |
-| PS4 | 44-byte GnfSurface descriptor + GPU-swizzled pixels |
+| PC | ไฟล์ DDS โดยตรง |
+| PS4 | 44-byte GnfSurface descriptor + pixel ที่ swizzle ด้วย GPU |
 
-PC vs PS4 is **auto-detected** — no flag needed.
+PC กับ PS4 **ตรวจจับอัตโนมัติ** — ไม่ต้องใส่ flag
 
-### Supported DDS Formats
+### รูปแบบ DDS ที่รองรับ
 
 `BC1 / BC2 / BC3 / BC4 / BC5 / BC7 / R8G8B8A8`
 
-### Commands
+### คำสั่ง
 
-#### Extract
+#### Extract (แตก texture)
 
 ```bash
+# PC — ไม่ต้องใช้ SDK
 python xbt_tool.py extract texture.xbt ./out
-```
 
-PC: saves `texture.dds` directly.
-PS4 (no SDK): saves raw swizzled DDS with a warning.
-
-```bash
+# PS4 — deswizzle ถูกต้อง
 python xbt_tool.py extract texture.xbt ./out --orbis-tools ps4sdk/
-```
 
-PS4 with SDK: properly deswizzles pixels — gives a correct viewable DDS.
-
-```bash
+# บันทึก PNG ด้วย (ต้องติดตั้ง Pillow)
 python xbt_tool.py extract texture.xbt ./out --orbis-tools ps4sdk/ --png
-```
 
-Also saves a `.png` alongside (requires Pillow).
-
-```bash
+# กำหนด DXGI format เองถ้า auto-detect ผิด
 python xbt_tool.py extract texture.xbt ./out --dxgi 99
 ```
 
-Override DXGI format number if auto-detection is wrong.
+สร้างไฟล์ `texture.dds` และ `texture.xbt.meta.json` ใน output directory
+**ไฟล์ `.meta.json` จำเป็นต้องใช้ตอน import**
 
-#### Import
+#### Import (แพ็ก texture กลับ)
 
 ```bash
+# PC
 python xbt_tool.py import texture_new.dds texture.xbt.meta.json output.xbt
-```
 
-PC: wraps the DDS directly.
-PS4 (no SDK): passes pixel data through with a warning.
-
-```bash
+# PS4 — reswizzle ถูกต้อง
 python xbt_tool.py import texture_new.dds texture.xbt.meta.json output.xbt --orbis-tools ps4sdk/
 ```
 
-PS4 with SDK: re-swizzles the DDS pixels before packing — gives a correct PS4 XBT.
-
-The `.meta.json` file is created automatically by `extract`. It stores the original XBT header and PS4 GnfSurface descriptor needed to rebuild the file.
-
-**GNF input is also accepted:**
+รองรับไฟล์ input ทั้ง DDS และ GNF:
 
 ```bash
+# GNF input — ใช้ pixel ที่ tiled แล้วโดยตรง ไม่ต้อง reswizzle
 python xbt_tool.py import texture.gnf texture.xbt.meta.json output.xbt
 ```
 
-If the input file has GNF format (magic `GNF `) the pre-tiled pixel data is used directly — no re-swizzle step.
-
 ---
 
-## Typical Workflow — PS4 Texture Mod
+## ขั้นตอน Mod Texture (PS4)
 
 ```
-1. Extract archive
+1. แตก archive
    python fat_tool.py extract DATA0.fat DATA0.dat ./unpacked
 
-2. Extract texture (deswizzle)
+2. แตก texture (deswizzle)
    python xbt_tool.py extract unpacked/ui/common/fonts/fire/din_next_w1g_default_1.xbt ./out --orbis-tools ps4sdk/
-   # produces: out/din_next_w1g_default_1.dds
-   #           out/din_next_w1g_default_1.xbt.meta.json
+   # ได้: out/din_next_w1g_default_1.dds
+   #      out/din_next_w1g_default_1.xbt.meta.json
 
-3. Edit the DDS in Photoshop / GIMP / etc.
+3. แก้ไข .dds ด้วย Photoshop / GIMP / etc.
 
-4. Import texture (reswizzle)
+4. แพ็ก texture กลับ (reswizzle)
    python xbt_tool.py import out/din_next_w1g_default_1.dds out/din_next_w1g_default_1.xbt.meta.json out/new.xbt --orbis-tools ps4sdk/
 
-5. Copy new.xbt back to unpacked/ path
+5. คัดลอก new.xbt กลับไปที่ path เดิมใน unpacked/
 
-6. Repack archive
+6. แพ็ก archive ใหม่ (สองแบบ)
+   # แบบ 1: แทนที่ใน archive เดิม
    python fat_tool.py import DATA0.fat DATA0.dat ./unpacked DATA0_new.fat DATA0_new.dat
+
+   # แบบ 2: สร้าง archive ใหม่จาก directory (ไม่ต้องใช้ต้นฉบับ)
+   python fat_tool.py pack ./unpacked DATA0_new.fat DATA0_new.dat
 ```
 
----
+## ขั้นตอน Mod Texture (PC)
 
-## Typical Workflow — PC Texture Mod
-
-No SDK needed for PC.
+ไม่ต้องใช้ SDK
 
 ```
-1. Extract
+1. แตก
    python xbt_tool.py extract texture.xbt ./out
-   # produces: out/texture.dds + out/texture.xbt.meta.json
 
-2. Edit texture.dds
+2. แก้ไข texture.dds
 
-3. Import
+3. แพ็กกลับ
    python xbt_tool.py import out/texture.dds out/texture.xbt.meta.json out/texture_new.xbt
 ```
 
 ---
 
-## Notes
+## หมายเหตุ
 
-- **Round-trip accuracy**: PS4 swizzle/deswizzle via `libSceGpuAddress.dll` is bit-perfect (0 byte differences verified).
-- **Font textures** in Far Cry Primal use MSDF (Multi-channel Signed Distance Field) encoding — the extracted DDS will look like colorful noise; this is normal. Use the accompanying `.ffd` file for glyph layout.
-- PS4 fat archives use **LZ4** compression (not Zlib). scheme=2 entries in language fat files are a different compression not yet identified.
+- **Round-trip accuracy**: PS4 swizzle/deswizzle ผ่าน `libSceGpuAddress.dll` ถูกต้อง bit-perfect (ทดสอบแล้ว 0 byte ต่าง)
+- **Font texture** ใน Far Cry Primal ใช้ MSDF (Multi-channel Signed Distance Field) — DDS ที่ extract ออกมาจะดูเหมือน noise สีๆ นั่นเป็นเรื่องปกติ ใช้ไฟล์ `.ffd` คู่กันสำหรับตำแหน่ง glyph
+- PS4 fat archive ใช้ compression **LZ4** (ไม่ใช่ Zlib)
