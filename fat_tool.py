@@ -641,63 +641,42 @@ def cmd_import(args):
 def cmd_pack(args):
     """
     Create a brand-new FAT/DAT containing ONLY the files in the input directory.
-
-    If _manifest.json exists in the input dir it is used for platform/comp_ver
-    and pre-computed hashes.  If there is no manifest (i.e. packing a fresh
-    directory), every file under the directory is packed; CRC64 hashes are
-    computed from the relative path (backslash-separated, same as Dunia).
-    Use --platform and --comp-ver to control the target platform in that case.
+    The original FAT is used only to copy the header flags (platform, comp_ver,
+    version) so the new archive matches the target platform (PC or PS4).
 
     Entry order in the new FAT is sorted by hash (same convention as Dunia).
+    Entries not found on disk are silently skipped.
     """
     in_dir       = args.input
     out_fat_path = args.out_fat
     out_dat_path = args.out_dat
 
     manifest_path = os.path.join(in_dir, '_manifest.json')
+    if not os.path.isfile(manifest_path):
+        raise FileNotFoundError(f'Manifest not found: {manifest_path}\nRun extract first.')
 
-    if os.path.isfile(manifest_path):
-        with open(manifest_path, 'r', encoding='utf-8') as f:
-            manifest = json.load(f)
-        platform = manifest.get('platform', 0)
-        comp_ver  = manifest.get('comp_ver', 0)
-        # Build sorted (hash_int, path_str) list from manifest
-        file_list = sorted(
-            ((int(e['hash'], 16), e['path']) for e in manifest['entries']),
-            key=lambda x: x[0]
-        )
-        print(f'Using manifest: {len(file_list)} entries')
-    else:
-        # No manifest — derive platform/comp_ver from CLI, walk the directory
-        platform = getattr(args, 'platform', 4)   # default PS4
-        comp_ver  = getattr(args, 'comp_ver', 2)  # default PS4 comp_ver=2
-        print(f'No manifest found. Walking directory, computing hashes from filenames.')
+    with open(manifest_path, 'r', encoding='utf-8') as f:
+        manifest = json.load(f)
 
-        entries = []
-        for root, dirs, files in os.walk(in_dir):
-            dirs.sort()
-            for fname in sorted(files):
-                full     = os.path.join(root, fname)
-                rel_os   = os.path.relpath(full, in_dir)
-                # Normalize to backslash for hashing (Dunia convention)
-                rel_hash = rel_os.replace(os.sep, '\\')
-                entries.append((crc64(rel_hash), rel_hash))
-        file_list = sorted(entries, key=lambda x: x[0])
-        print(f'  Found {len(file_list)} file(s)')
-
-    big          = not _is_little_endian(platform)
+    platform = manifest.get('platform', 0)
+    comp_ver  = manifest.get('comp_ver', 0)
+    big       = not _is_little_endian(platform)
     platform_str = PLATFORM_NAMES.get(platform, f'Unknown({platform})')
+
     print(f'Packing  platform={platform} ({platform_str})  comp_ver={comp_ver}')
 
     new_dat     = bytearray()
     new_entries = []
 
-    for h, path in file_list:
-        rel       = path.replace('/', os.sep).replace('\\', os.sep)
+    # Sort entries by hash for consistency (Dunia uses sorted order)
+    sorted_entries = sorted(manifest['entries'], key=lambda e: int(e['hash'], 16))
+
+    for man in sorted_entries:
+        rel       = man['path'].replace('/', os.sep).replace('\\', os.sep)
         file_path = os.path.join(in_dir, rel)
 
         if not os.path.isfile(file_path):
-            print(f'  [skip] not on disk: {path}')
+            print(f'  [skip] not on disk: {man["path"]}')
             continue
 
         with open(file_path, 'rb') as rf:
@@ -714,13 +693,13 @@ def cmd_pack(args):
         new_dat += comp_data
 
         new_entries.append({
-            'hash':         h,
+            'hash':         int(man['hash'], 16),
             'offset':       offset,
             'compressed':   len(comp_data),
             'uncompressed': uncompressed,
             'scheme':       scheme,
         })
-        print(f'  packed: {path}  ({len(raw_data):,} bytes)')
+        print(f'  packed: {man["path"]}  ({len(raw_data):,} bytes)')
 
     print(f'Writing {out_dat_path}  ({len(new_dat):,} bytes) ...')
     with open(out_dat_path, 'wb') as f:
@@ -792,14 +771,10 @@ def main():
     p.add_argument('out_fat', help='Output .fat')
     p.add_argument('out_dat', help='Output .dat')
 
-    p = sub.add_parser('pack', help='Create new FAT/DAT from a directory (manifest optional)')
-    p.add_argument('input',   help='Input directory (with or without _manifest.json)')
+    p = sub.add_parser('pack', help='Create new FAT/DAT with only the extracted files (no original needed)')
+    p.add_argument('input',   help='Input dir with _manifest.json and extracted files')
     p.add_argument('out_fat', help='Output .fat')
     p.add_argument('out_dat', help='Output .dat')
-    p.add_argument('--platform', type=int, default=4, metavar='N',
-                   help='Platform id: 0=Any 1=PC 4=PS4  (default 4, used when no manifest)')
-    p.add_argument('--comp-ver', type=int, default=2, dest='comp_ver', metavar='N',
-                   help='Compression version: 0=PC(LZO) 2=PS4(LZ4)  (default 2, used when no manifest)')
 
     p = sub.add_parser('hashlist', help='Build hash→path JSON from filelist(s)')
     p.add_argument('filelists', nargs='+')
