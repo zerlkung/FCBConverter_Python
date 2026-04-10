@@ -1,8 +1,0 @@
-{
-  "profiles": {
-    "FCBConverter": {
-      "commandName": "Project",
-      "commandLineArgs": "\"D:\\Desktop\\Metallica_512_mips.xbt.converted.xml\""
-    }
-  }
-}

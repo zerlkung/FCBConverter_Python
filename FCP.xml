@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Far Cry Primal — filelist for fat_tool.py
+    Drop this file next to fat_tool.py; it is loaded automatically.
+
+    Add any path you want to be able to extract/import by name.
+    Both forward-slash and backslash are accepted.
+    Tag name does not matter — any element with a "name" attribute is used.
+-->
+<filelist game="Far Cry Primal">
+
+    <!-- Language strings -->
+    <File name="LANGUAGES\english\oasisstrings.oasis.bin" />
+
+    <!-- UI font definitions and textures -->
+    <File name="ui\common\fonts\fire\tradegothic_lt_bold_default.ffd" />
+    <File name="ui\common\fonts\fire\tradegothic_lt_bold_default_1.xbt" />
+    <File name="ui\common\fonts\fire\din_next_w1g_default.ffd" />
+    <File name="ui\common\fonts\fire\din_next_w1g_default_1.xbt" />
+
+</filelist>
